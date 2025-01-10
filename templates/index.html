@@ -1,0 +1,155 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="UTF-8">
+  <title>Forest Percentage Prediction</title>
+  <link href='https://fonts.googleapis.com/css?family=Pacifico' rel='stylesheet' type='text/css'>
+  <link href='https://fonts.googleapis.com/css?family=Arimo' rel='stylesheet' type='text/css'>
+  <link href='https://fonts.googleapis.com/css?family=Hind:300' rel='stylesheet' type='text/css'>
+  <link href='https://fonts.googleapis.com/css?family=Open+Sans+Condensed:300' rel='stylesheet' type='text/css'>
+  <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
+  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+  <link rel="stylesheet" href="https://unpkg.com/leaflet-control-geocoder/dist/Control.Geocoder.css" />
+  <style>
+    .loader {
+      display: none;
+      border: 4px solid #f3f3f3;
+      border-top: 4px solid #3498db;
+      border-radius: 50%;
+      width: 40px;
+      height: 40px;
+      animation: spin 1s linear infinite;
+      margin: 10px auto;
+    }
+    @keyframes spin {
+      0% { transform: rotate(0deg); }
+      100% { transform: rotate(360deg); }
+    }
+    .loading-text {
+      display: none;
+      text-align: center;
+      font-size: 16px;
+      margin-top: 10px;
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <!-- Left Section -->
+    <div class="left-section">
+      <div class="login">
+        <h1>Greenery Percentage Analysis (Trees, Vegetation)</h1>
+        <!-- Image upload form -->
+        <form id="uploadForm" action="{{ url_for('predict') }}" method="post" enctype="multipart/form-data">
+          <input type="file" name="image" accept="image/*" required="required" id="imageUpload" />
+          <button type="button" class="capture-button" id="capture-map">Capture Map</button>
+          <button type="submit" class="btn btn-primary btn-block btn-large">Analyse</button>
+        </form>
+        <!-- Loader -->
+        <div class="loader" id="loader"></div>
+        <p class="loading-text" id="loadingText">Analysing, please wait...</p>
+        <!-- Image Preview -->
+        <div class="image-preview-container">
+          <p>Uploaded Image Preview:</p>
+          <img id="imagePreview" class="image-preview" alt="Image Preview" />
+        </div>
+        <br>
+        <p id="predictionText">{{ prediction_text }}</p>
+      </div>
+    </div>
+    <!-- Right Section -->
+    <div class="right-section">
+      <!-- Map -->
+      <div id="map"></div>
+    </div>
+  </div>
+  <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+  <script src="https://unpkg.com/leaflet-control-geocoder/dist/Control.Geocoder.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
+  <script>
+    // Initialize the map and set its view
+    const map = L.map('map').setView([37.7749, -122.4194], 16);
+
+    // Add Esri Satellite tiles
+    L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}').addTo(map);
+
+    // Add a search bar using Leaflet-Control-Geocoder
+    const geocoder = L.Control.geocoder({
+      defaultMarkGeocode: true,
+    })
+      .on('markgeocode', function (e) {
+        const center = e.geocode.center;
+        map.setView(center, 16);
+      })
+      .addTo(map);
+
+    map.on('load', () => {
+      document.getElementById('capture-map').disabled = false;
+    });
+
+    document.getElementById('capture-map').addEventListener('click', () => {
+      const mapContainer = document.querySelector('#map');
+      html2canvas(mapContainer, { useCORS: true })
+        .then(canvas => {
+          canvas.toBlob(blob => {
+            const file = new File([blob], 'captured-map.png', { type: 'image/png' });
+            const fileInput = document.getElementById('imageUpload');
+            const dataTransfer = new DataTransfer();
+            dataTransfer.items.add(file);
+            fileInput.files = dataTransfer.files;
+            const event = new Event('change');
+            fileInput.dispatchEvent(event);
+          });
+        })
+        .catch(error => {
+          console.error('Error capturing the map:', error);
+        });
+    });
+
+    const imageUpload = document.getElementById('imageUpload');
+    const imagePreview = document.getElementById('imagePreview');
+    const uploadForm = document.getElementById('uploadForm');
+    const predictionTextContainer = document.getElementById('predictionText');
+    const loader = document.getElementById('loader');
+    const loadingText = document.getElementById('loadingText');
+
+    imageUpload.addEventListener('change', function () {
+      const file = this.files[0];
+      if (file) {
+        const reader = new FileReader();
+        reader.onload = function (e) {
+          imagePreview.src = e.target.result;
+          imagePreview.style.display = 'block';
+        };
+        reader.readAsDataURL(file);
+      } else {
+        imagePreview.src = '';
+        imagePreview.style.display = 'none';
+      }
+    });
+
+    uploadForm.addEventListener('submit', function (e) {
+      e.preventDefault();
+      loader.style.display = 'block';
+      loadingText.style.display = 'block';
+      predictionTextContainer.textContent = ''; // Clear any previous prediction text
+      const formData = new FormData(this);
+      fetch(this.action, {
+        method: 'POST',
+        body: formData
+      })
+        .then(response => response.json())
+        .then(data => {
+          loader.style.display = 'none';
+          loadingText.style.display = 'none';
+          predictionTextContainer.textContent = data.prediction_text;
+        })
+        .catch(error => {
+          loader.style.display = 'none';
+          loadingText.style.display = 'none';
+          console.error('Error:', error);
+        });
+    });
+  </script>
+</body>
+</html>
