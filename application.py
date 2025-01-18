@@ -16,7 +16,7 @@ if not os.path.exists(app.config['UPLOAD_FOLDER']):
     os.makedirs(app.config['UPLOAD_FOLDER'])
 
 # Load the model (ensure it's loaded only once when the app starts)
-model_path = "C:/External Drive/Devpost/GreenTrack/unet_forest_model.h5"
+model_path = "models/unet_forest_model.h5"
 model = load_model(model_path)
 
 def allowed_file(filename):
